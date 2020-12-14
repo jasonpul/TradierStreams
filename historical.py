@@ -1,5 +1,5 @@
-from typing import Callable, Any
 from urllib.parse import urlencode
+from typing import Callable, Any, List
 
 import utils, json, time, logging, requests, urllib3, streamz
 
@@ -78,30 +78,25 @@ class TM:
             logging.debug(f"Task: {URL}")
             source.emit(URL)
             
-
-        logging.debug("Completed ")
         self.tasks.clear()
 
 
-    def register(self, *symbols, **params):
+    def register(self, symbols = List[str], interval = str, **params):
         """ 
         Maps parameters to multiple symbols 
 
-        *symbols (str): equity or option ticker symbols
-        **params (str):
-            interval = one of "daily", "weekly", "monthly", "1min", "5min", "15min", "tick"
+        Args:
+            symbols (list): (required) equity or option ticker symbols
+            interval (str): (required) one of "daily", "weekly", "monthly", "1min", "5min", "15min", "tick"
+
+        Params:
             start, end = time strings in the format YYYY-MM-DD HH:MM 
         """
-
-        if "interval" not in params: 
-            params["interval"] = "daily"
 
         source = streamz.Stream()
         source.map(self._create_URL, **params).sink(self.tasks.append)
 
         for symbol in symbols:
-            logging.debug(f"Registering: {symbol} ({params['interval']})")
+            logging.debug(f"Registering: {symbol} ({interval})")
             source.emit(symbol)
             
-
-
