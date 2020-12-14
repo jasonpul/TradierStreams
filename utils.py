@@ -1,5 +1,4 @@
-import logging, json, requests, time, ciso8601
-from datetime import datetime
+import logging, time, ciso8601
 
 def filelogger(filepath: str, level: int = 10):
     """ Create a log handler that logs to the given file """
@@ -40,22 +39,3 @@ def timestamp(timestring: str):
 
     ts = ciso8601.parse_datetime(timestring)
     return time.mktime(ts.timetuple())
-
-def sessionid(API: str):
-    """ Fetches a streaming session token using the given API key """
-
-    response = requests.post(
-        url = "https://api.tradier.com/v1/markets/events/session",
-        headers = {"Accept": "application/json", "Authorization": "Bearer %s" % API}
-    )
-
-    if response.headers["Content-Type"] != "application/json;charset=UTF-8":
-        raise KeyError("could not fetch session id")
-    
-    sessionid = response.json()["stream"]["sessionid"]
-    
-    logging.debug(f"Session ID: {sessionid}")
-    return sessionid
-
-
-
