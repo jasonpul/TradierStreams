@@ -27,7 +27,7 @@ Historical data is fetched synchronously with HTTP requests.
 <br/><br/>
 A valid Sandbox or Brokerage API key is needed to request historical data. Additionally, some features such as tick data are exclusive to Brokerage API members. All requests are made individually with an adjustable time delay in between each request (.25 seconds by default). A delay is needed to reduce the possibility of a rate limit; however, a request can be retried upto 3 times if a ratelimit occur. Similar to realtime streaming, a callback can be specified to run after receiving a response. 
 <br/><br/>
-In contrast to realtime subscriptions, multiple historical subscriptions can be registered at once in bulk. Multiple symbols can be registered to the same parameters *multiple* times. See the following example for clarification. 
+In contrast with realtime subscriptions, multiple historical subscriptions can be registered at once in bulk. Multiple symbols can be registered to the same parameters *multiple* times. See the following example for clarification. 
 ```python3
 results = []
 
