@@ -1,75 +1,71 @@
-
-
-from dataclasses import dataclass, field
-from typing import Callable, List, Any
 from tornado.platform.asyncio import AsyncIOMainLoop
+from typing import Callable, List, Any
 
-import utils, json, time, logging, weakref, websockets, asyncio, streamz
+import utils, json, time, logging, weakref, websockets, requests, asyncio, streamz
 
 AsyncIOMainLoop().install()
 utils.consolelogger(10)
 
-@dataclass
+
 class TS:
-    """
-    Programmatic control over starting and stopping Tradier's Market WebSocket API
 
-    Args:
-        API (str): (required) a valid Brokerage API key
-        stoptime (str): (required) local time string indicating when to close the stream
-        callback (callable): (required) callback to run for every message received 
+    def __init__(self, API: str, stoptime: str, callback: Callable[[str], Any] = print):
+        """
+        Programmatic control over starting and stopping Tradier's Market WebSocket API
 
-        symbols (list): equity or option ticker symbols
-        filters (list): types of payloads to retrieve in the stream 
-        linebreak (bool): insert a line break after a completed payload
-        validticks (bool): include only ticks that are considered valid by exchanges.
-        details (bool): include advanced details in timesale payloads
-    
+        Args:
+            API (str): (required) a valid Brokerage API key
+            stoptime (str): (required) local time string indicating when to close the stream
+            callback (callable): callback to run for every message received 
+        
+        Example usage:
 
-    Example usage:
+        .. code-block:: python
 
-    .. code-block:: python
+            results = []
 
-        results = []
+            stream = TS(API_key = "...", stoptime = "2020-12-14 16:00:00", callback = results.append)
+            stream.register(symbols = ["TSLA", "SPY"], filters = ["trade", "quote"])
+            stream.connect()
 
-        stream = TS(API_key = "...", stoptime = "2020-12-14 16:00:00", callback = results.append)
-        stream.symbols += ["TSLA", "SPY", "AAPL", "MSFT"]
-        stream.filters += ["trade", "tradex", "quote", "summary", "timesale"]
-        stream.connect()
+        """
+        self.stoptime = utils.timestamp(stoptime)
+        self.API = API 
 
-    """
-    API: str
-    stoptime: str
-    callback: Callable[[str], Any]
-
-    symbols: List[str] = field(default_factory = list)
-    filters: List[str] = field(default_factory = list)
-    linebreak: bool = False
-    validticks: bool = True
-    details: bool = False
-
-    def __post_init__(self):
         self.source = streamz.Stream(asynchronous = True)
-        self.source.sink(self.callback)
+        self.source.sink(callback)
 
-        self.stoptime = utils.timestamp(self.stoptime)
+        self.payload = {}
         self.loop = None
+        
+    
+    def register(self, symbols: List[str], filters: List[str], **settings):
+        """
+        Args:
+            symbols (list): (required) equity or option ticker symbols
+            filters (list): (required) types of payloads to retrieve in the stream 
+        
+        Settings:
+            linebreak (bool): insert a line break after a completed payload
+            validOnly (bool): include only ticks that are considered valid by exchanges.
+            advancedDetails (bool): include advanced details in timesale payloads
+        """
+        
+        settings.update({"symbols": symbols, "filter": filters})
+        self.payload.update(settings)
 
-    @property
-    def payload(self):
-        if not self.symbols: raise ValueError("No symbols were specified")
+        logging.debug(f"Subscription: {self.payload}")
+    
+    def authenticate(self):
+        response = requests.post(
+            url = "https://api.tradier.com/v1/markets/events/session",
+            headers = {"Accept": "application/json", "Authorization": "Bearer %s" % self.API}
+        )
 
-        payload = {
-            "linebreak": self.linebreak, 
-            "validOnly": self.validticks, 
-            "advancedDetails": self.details,
-            "symbols": self.symbols,
-            "filter": self.filters,
-            "sessionid": utils.sessionid(self.API)
-        }
+        sessionid = response.json()["stream"]["sessionid"]
+        self.payload.update({"sessionid": sessionid})
 
-        logging.debug(f"Prepared payload: {payload}")
-        return json.dumps(payload)
+        logging.debug(f"Authentication Successful ({sessionid})")
 
     async def ws_connect(self):
         try:
@@ -78,22 +74,24 @@ class TS:
                                             max_queue = 100000,
                                             
                                         )
-            await ws.send(self.payload)
+            await ws.send(json.dumps(self.payload))
             
-            logging.debug("Listening into stream...")
+            logging.debug("Listening into WebSocket...")
             while True:
                 self.source.emit(await ws.recv())
 
         except (KeyboardInterrupt, KeyError, ValueError, websockets.WebSocketException) as error:
             self.disconnect(error) 
-    
+
     def disconnect(self, reason: str):
-        logging.debug(f"Stream connection closed ({reason})")
+        logging.warn(f"Stream Closed ({reason})")
         
         self.loop.stop()
         self.loop.stop()
 
     def connect(self):
+        self.authenticate()
+
         self.loop = asyncio.get_event_loop()
         self.loop.call_later(self.stoptime - time.time(), self.disconnect, "reached stoptime")
         self.loop.create_task(self.ws_connect())
@@ -128,7 +126,6 @@ class FileWriter:
 
 # if __name__ == '__main__':
 #     results = FileWriter("data/2020-12-13.json")
-#     stream = TS(API = "GET_YOUR_OWN_KEY", callback = results.write, stoptime = "2020-12-13 14:16:00")
-#     stream.symbols += ["AAPL", "TSLA", "SPY", "MSFT", "AMZN", "VIX"]
-#     stream.filters += ["trade", "tradex", "quote", "summary", "timesale"]
+#     stream = TS(API = "<API_KEY>", stoptime = "2020-12-13 14:16:00", callback = results.write)
+#     stream.register(symbols = ["TSLA", "SPY"], filters = ["trade", "quote"])
 #     stream.connect()
