@@ -10,8 +10,6 @@ class Market:
         """ 
         Programmatic control over fetching historical data from Tradier's Market Data API.
 
-        Can be used to register multiple tickers with the same parameters.
-
         Args:
             key (str): (required) a valid Sandbox or Brokerage API key
             endpoint (str): (required) corresponding API endpoint, either of "brokerage" or "sandbox"
