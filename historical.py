@@ -1,4 +1,5 @@
 import logging, utils 
+from typing import List, Callable, Any
 from streamz import Stream
 from helpers import History, Client
 
@@ -32,7 +33,7 @@ class Market:
         self.tasks = []
         self.results = []
 
-    def register(self, symbols = list, interval = str, **kwargs):
+    def register(self, symbols = List[str], interval = str, **kwargs):
         """ 
         Maps parameters to multiple symbols 
 
@@ -49,14 +50,26 @@ class Market:
         
         logging.debug("[-->] registered %d URLs (current queue size: %d)" % (len(symbols), len(self.tasks)))
 
-    def request(self):
-        """ Starts making requests and stores results in a list """
+    def request(self, delay: float = 0.25, callback: Callable[[dict], Any] = None):
+        """ 
+        Starts fetching requests
+
+        Args:
+            delay (float): time interval to wait between requests 
+            callback (function): a callable receiving every response (dict)
+        
+        """
+        if not callback:
+            callback = self.results.append 
 
         fetch = Stream()
-        fetch.rate_limit(0.25).map(self.httpclient.s.get).map(lambda x: x.json()).sink(self.results.append)
+        fetch.rate_limit(delay).map(self.httpclient.s.get).map(lambda x: x.json()).sink(callback)
         
         for task in self.tasks:
             fetch.emit(task)    
             logging.debug("[<--] %s" % task.split("?")[1])
         
         self.tasks.clear()
+
+
+
