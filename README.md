@@ -11,3 +11,4 @@ Refer to docstrings and recipes to learn more.
 ### TODO
 * Subscribe to symbols/filers while running (using the watchlist endpoint)
 * Support for complex callbacks
+* Option (symbol) filtering
